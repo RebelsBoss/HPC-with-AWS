@@ -1,15 +1,15 @@
-Region: us-east-1
+Region: <your-region>
 
 Image:
   Os: alinux2
 
 HeadNode:
-  InstanceType: c5n.large
+  InstanceType: <instance-type>
   Networking:
-    SubnetId: subnet-03a21631963d2b8cb
+    SubnetId: <id-subnet>
     AdditionalSecurityGroups: []
   Ssh:
-    KeyName: test-key
+    KeyName: <name-key>
   Iam:
     AdditionalIamPolicies:
       - Policy: arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
@@ -20,11 +20,11 @@ Scheduling:
     - Name: compute
       Networking:
         SubnetIds:
-          - subnet-03a21631963d2b8cb
+          - <id-subnet>
       ComputeResources:
         - Name: compute-resource
-          InstanceType: c5n.large
-          MinCount: 3
+          InstanceType: <instance-type>
+          MinCount: 2
           MaxCount: 3
 
 SharedStorage:
