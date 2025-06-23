@@ -1,0 +1,41 @@
+Region: <your-region>
+Image:
+  Os: alinux2
+HeadNode:
+  InstanceType: <instance-type>
+  Networking:
+    SubnetId: <id-subnet>
+    AdditionalSecurityGroups:
+        - <sg-id>
+  Ssh:
+    KeyName: <key-name>
+
+Scheduling:
+  Scheduler: slurm
+  SlurmQueues:
+    - Name: q1
+      ComputeResources:
+        - Name: cr1
+          Instances:
+            - InstanceType: <instance-type>
+          MinCount: 2
+          MaxCount: 3
+          Efa:
+            Enabled: true
+      Networking:
+        SubnetIds:
+          - <id-subnet>
+        AdditionalSecurityGroups:
+          - <sg-id>
+        PlacementGroup:
+          Enabled: true
+      CustomActions:
+        OnNodeStart:
+          Script: <https://path-to-bucket-with-file/configure-efa-fsx-lustre-client.sh
+
+SharedStorage:
+  - MountDir: /fsx
+    Name: my-fsxlustre-efa-external
+    StorageType: FsxLustre
+    FsxLustreSettings:
+      FileSystemId: <fsx-id>
