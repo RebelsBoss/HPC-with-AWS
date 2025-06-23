@@ -1,0 +1,36 @@
+Region: us-east-1
+
+Image:
+  Os: alinux2
+
+HeadNode:
+  InstanceType: c5n.large
+  Networking:
+    SubnetId: subnet-03a21631963d2b8cb
+    AdditionalSecurityGroups: []
+  Ssh:
+    KeyName: test-key
+  Iam:
+    AdditionalIamPolicies:
+      - Policy: arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+
+Scheduling:
+  Scheduler: slurm
+  SlurmQueues:
+    - Name: compute
+      Networking:
+        SubnetIds:
+          - subnet-03a21631963d2b8cb
+      ComputeResources:
+        - Name: compute-resource
+          InstanceType: c5n.large
+          MinCount: 3
+          MaxCount: 3
+
+SharedStorage:
+  - Name: shared
+    MountDir: /shared
+    StorageType: Ebs
+    EbsSettings:
+      VolumeType: gp2
+      Size: 50
