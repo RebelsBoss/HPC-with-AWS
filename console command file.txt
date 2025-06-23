@@ -1,0 +1,27 @@
+## Windows command
+# Create security group for the FSx client
+cmd /c "aws ec2 create-security-group --group-name Fsx-Client-SecurityGroup --description "Allow traffic for the FSx Lustre client" --vpc-id <your-vpc> --region <your-region>"
+
+# Create security group for the FSx file system
+cmd /c "aws ec2 create-security-group --group-name Fsx-FileSystem-SecurityGroup --description "Allow traffic for the FSx Lustre File System" --vpc-id <your-vpc> --region <your-region>"
+
+# Allow all outbound traffic from the client to the file system
+cmd /c "aws ec2 authorize-security-group-egress --group-id <sg-file-system> --protocol -1 --port -1 --source-group <sg-file-system> --region <your-region>"
+
+# Allow all inbound traffic within this security group
+cmd /c "aws ec2 authorize-security-group-ingress --group-id <sg-file-system> --protocol -1 --port -1 --source-group <sg-file-system> --region <your-region>"
+
+# Allow all outbound traffic within this security group
+cmd /c "aws ec2 authorize-security-group-egress --group-id <sg-file-system> --protocol -1 --port -1 --source-group <sg-file-system> --region <your-region>"
+
+# Allow all inbound traffic from the client
+cmd /c "aws ec2 authorize-security-group-ingress --group-id <sg-file-system> --protocol -1 --port -1 --source-group <sg-client> --region <your-region>"
+
+# Allow all outbound traffic to the client
+cmd /c "aws ec2 authorize-security-group-egress --group-id <sg-file-system> --protocol -1 --port -1 --source-group <sg-client> --region <your-region>"
+
+# Create fsx
+cmd /c "aws fsx create-file-system --file-system-type LUSTRE --storage-capacity 38400 --storage-type SSD --subnet-ids <id-subnet> --security-group-ids <sg-file-system> --lustre-configuration DeploymentType=PERSISTENT_2,PerUnitStorageThroughput=125,EfaEnabled=true,MetadataConfiguration={Mode=AUTOMATIC} --region <your-region>"
+
+# Quota cpu limit view
+cmd /c "aws service-quotas get-service-quota --service-code ec2 --quota-code L-1216C47A --region <your-region>"
