@@ -1,0 +1,43 @@
+Region: <your-region>
+Image:
+  Os: alinux2
+
+HeadNode:
+  InstanceType: <instance-type>
+  Networking:
+    SubnetId: <id-subnet>
+    AdditionalSecurityGroups: [<sg-id>]
+  Ssh:
+    KeyName: <key-name>
+  Iam:
+    AdditionalIamPolicies:
+      - Policy: arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+
+Scheduling:
+  Scheduler: slurm
+  SlurmSettings:
+    EnableMemoryBasedScheduling: true
+  SlurmQueues:
+    - Name: efa-queue
+      CapacityType: ONDEMAND
+      Networking:
+        SubnetIds:
+          - <id-subnet>
+        PlacementGroup:
+          Enabled: true
+      ComputeResources:
+        - Name: efa-cr
+          InstanceType: <instance-type>
+          MinCount: 2
+          MaxCount: 3
+          Efa:
+            Enabled: true
+          DisableSimultaneousMultithreading: true
+
+SharedStorage:
+  - Name: shared
+    MountDir: /shared
+    StorageType: Ebs
+    EbsSettings:
+      VolumeType: gp2
+      Size: 100
