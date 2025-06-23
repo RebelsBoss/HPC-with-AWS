@@ -1,0 +1,139 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: HPC Cluster with Head Node and EFA Worker Nodes for ANSYS R1 2024
+
+Parameters:
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Existing SSH KeyPair for EC2 access
+
+
+Resources:
+
+  HPCVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref HPCVPC
+      CidrBlock: 10.0.0.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [0, !GetAZs '']
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref HPCVPC
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref HPCVPC
+
+  Route:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  RouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref RouteTable
+
+  ClusterSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH and internal communication
+      VpcId: !Ref HPCVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: -1
+          CidrIp: 10.0.0.0/16
+
+  HeadNode:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: c5n.4xlarge
+      KeyName: !Ref KeyName
+      ImageId: ami-0f3f13f145e66a0a3
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds: [!Ref ClusterSG]
+      Tags:
+        - Key: Name
+          Value: HeadNode
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 100
+            VolumeType: gp3
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          amazon-linux-extras install -y epel
+          yum install -y openmpi openmpi-devel htop
+          echo 'export PATH=/usr/lib64/openmpi/bin:$PATH' >> /etc/profile.d/mpi.sh
+          echo 'export LD_LIBRARY_PATH=/usr/lib64/openmpi/lib:$LD_LIBRARY_PATH' >> /etc/profile.d/mpi.sh
+
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: EFAWorkerTemplate
+      LaunchTemplateData:
+        ImageId: ami-0f3f13f145e66a0a3
+        InstanceType: c5n.18xlarge
+        KeyName: !Ref KeyName
+        EbsOptimized: true
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            InterfaceType: efa
+            AssociatePublicIpAddress: true
+            SubnetId: !Ref PublicSubnet
+            Groups: [!Ref ClusterSG]
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 100
+              VolumeType: gp3
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            yum update -y
+            amazon-linux-extras install -y epel
+            yum install -y openmpi openmpi-devel
+            echo 'export PATH=/usr/lib64/openmpi/bin:$PATH' >> /etc/profile.d/mpi.sh
+            echo 'export LD_LIBRARY_PATH=/usr/lib64/openmpi/lib:$LD_LIBRARY_PATH' >> /etc/profile.d/mpi.sh
+
+  WorkerASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier: [!Ref PublicSubnet]
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 3
+      DesiredCapacity: 2
+      Tags:
+        - Key: Name
+          Value: EFANode
+          PropagateAtLaunch: true
+
+Outputs:
+  HeadNodeIP:
+    Description: SSH IP address for the head node
+    Value: !GetAtt HeadNode.PublicIp
